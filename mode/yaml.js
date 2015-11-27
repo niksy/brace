@@ -206,7 +206,7 @@ oop.inherits(FoldMode, BaseFoldMode);
 
 });
 
-ace.define("ace/mode/yaml",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/yaml_highlight_rules","ace/mode/matching_brace_outdent","ace/mode/folding/coffee"], function(acequire, exports, module) {
+ace.define("ace/mode/yaml",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/yaml_highlight_rules","ace/mode/matching_brace_outdent","ace/mode/folding/coffee","ace/worker/worker_client"], function(acequire, exports, module) {
 "use strict";
 
 var oop = acequire("../lib/oop");
@@ -214,6 +214,7 @@ var TextMode = acequire("./text").Mode;
 var YamlHighlightRules = acequire("./yaml_highlight_rules").YamlHighlightRules;
 var MatchingBraceOutdent = acequire("./matching_brace_outdent").MatchingBraceOutdent;
 var FoldMode = acequire("./folding/coffee").FoldMode;
+var WorkerClient = acequire("../worker/worker_client").WorkerClient;
 
 var Mode = function() {
     this.HighlightRules = YamlHighlightRules;
@@ -225,7 +226,7 @@ oop.inherits(Mode, TextMode);
 (function() {
 
     this.lineCommentStart = "#";
-    
+
     this.getNextLineIndent = function(state, line, tab) {
         var indent = this.$getIndent(line);
 
@@ -245,6 +246,21 @@ oop.inherits(Mode, TextMode);
 
     this.autoOutdent = function(state, doc, row) {
         this.$outdent.autoOutdent(doc, row);
+    };
+
+    this.createWorker = function(session) {
+        var worker = new WorkerClient(["ace"], require("../worker/yaml"), "YamlWorker");
+        worker.attachToDocument(session.getDocument());
+
+        worker.on("lint", function(results) {
+            session.setAnnotations(results.data);
+        });
+
+        worker.on("terminate", function() {
+            session.clearAnnotations();
+        });
+
+        return worker;
     };
 
 
